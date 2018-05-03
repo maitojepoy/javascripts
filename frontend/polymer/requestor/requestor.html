@@ -1,0 +1,173 @@
+<script>
+/*
+Polymer behavior to be used with iron-ajax (modified)
+*/
+
+Requestor = {
+	properties: {
+		theurl: { 
+			type: String,
+			notify: true
+		},
+		ssrequester: {
+			type: Object
+		},
+		params: {
+	        type: Object,
+	        value: function() {
+	          return {};
+	        }
+	    },
+		getparams: {
+	        type: Object,
+	        value: function() {
+	          return {};
+	        }
+	    },
+	    page: {
+	    	type: Number,
+	    	value: function(){
+	    		return 1;
+	    	}
+	    },
+		command: {
+			type: String
+		},
+		cmdlisten: {
+			type: Boolean,
+			value: false
+		},
+		response: {
+			type: Array,
+			notify: true,
+			value: function(){ return []; }
+		},
+		jsonparams: {
+			type: Boolean,
+			value: !1
+		},
+		progress: {
+        	type: Object,
+        	notify: true,
+        	readOnly: true,
+        	value: function() {
+          		return {};
+        	}
+      	}
+	},
+	observers: [
+      '_readyForCommand(command)'
+    ],
+
+    _readyForCommand: function(cm){
+    	if (this.cmdlisten) this._callCommand();
+    },
+    ready: function(){
+		var el = this.$$('iron-ajax');
+		if(typeof el != "undefined") {
+			this.ssrequester = el;
+			if (typeof this._handleResponse != 'undefined')
+				this.listen(el,'response','_handleResponse');
+			if (typeof this._handleErrorResponse != 'undefined')
+				this.listen(el,'error','_handleErrorResponse');
+		}
+	},
+	serialjson: function(obj){
+		var ob = [];
+		for (var aa in obj){
+			ob.push(aa+'='+encodeURIComponent(obj[aa]));
+		}
+		return ob.join('&');
+	},
+	_handleXHRRequest: function(e) {
+		this._setProgress({
+          lengthComputable: e.detail.lengthComputable,
+          loaded: e.detail.loaded,
+          total: e.detail.total
+        });
+        //console.log(e);
+        this.fire('progress',this.progress);
+		//console.log(e.detail.request.progress);
+	},
+	createFormData: function () {
+		var formData = new FormData();
+		var dataput = JSON.stringify(this.params);
+		formData.append('data', dataput);
+		return formData;
+	},
+	_goRequest: function(ident, fileoptarr, addonPostParameters){
+		//this.ssrequester.contentType = "application/x-www-form-urlencoded";
+		var toident = (typeof ident !== 'undefined');
+		var formData = new FormData();
+		var toupl = (typeof fileoptarr !== 'undefined');
+		if (toupl) {
+			for (var i=0; i<fileoptarr.length; i++)
+				formData.append(fileoptarr[i].name,fileoptarr[i].file,fileoptarr[i].file.name);
+		}
+		if (this.jsonparams) {
+			var dataput = JSON.stringify(this.params);
+			formData.append('data', dataput);
+		} else {
+			for (var i in this.params) {
+				formData.append(i,this.params[i]);
+			}
+		}
+
+		if(typeof addonPostParameters != "undefined" && Object.keys(addonPostParameters).length > 0) {
+			for(key in addonPostParameters){
+				formData.append(key, addonPostParameters[key]);
+			}
+		}
+
+		this.ssrequester.params = this.getparams;
+		this.ssrequester.body = formData;
+		// this.ssrequester.contentType = null;
+
+		var req = this.ssrequester.generateRequest(ident,toupl);
+		//this.datasent = formData;
+		req.addEventListener('upload-progress', this._handleXHRRequest.bind(this));
+		return req;
+	},
+	_handleErrorResponse: function(e, request) {
+		var error = request.error, data = request.request.__data__;
+		var	errorMsg = error.message,
+			statusCode = data.status,
+			statusText = data.statusText;
+		
+		if (typeof this._requestorError !== 'undefined') {
+			this._requestorError({
+				statusCode: statusCode,
+				statusText: statusText,
+				message: errorMsg
+			});
+		}
+
+		this.fire('error-response',{
+				url: this.theurl,
+				params: this.params,
+				statusCode: statusCode,
+				statusText: statusText,
+				message: errorMsg
+		});
+	},
+	checkSessionMatch: function (res) {
+		if (res.error_msg == "session_not_match") {
+			if (typeof youMustLogin != 'undefined') youMustLogin();
+		}
+	},
+	loadNextPage: function(){
+		this.page++;
+		this.getparams.page = this.page;
+		this._goRequest();
+	},
+	isObjectEmpty: function(obj) {
+	    for(var prop in obj) {
+	        if(obj.hasOwnProperty(prop)) {
+	            return false;
+	        }
+	    }
+
+	    return true;
+	}
+};
+</script>

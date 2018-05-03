@@ -1,0 +1,70 @@
+<script>
+ScrollLocks = {
+	properties: {
+		lastscrollY: Number,
+		navup: {
+			type: Boolean,
+			value: false,
+			reflectToAttribute: true
+		},
+		fixStop: {
+			type: Number,
+			value: 128
+		},
+		fixStart: {
+			type: Number,
+			value: 0
+		},
+		scrollTop: {
+			type: Number,
+			observer: '_scrollHandler'
+		},
+		fixed: {
+			type: Boolean,
+			value: false,
+			reflectToAttribute: true
+		},
+		scldisabled: {
+			type: Boolean,
+			value: false
+		}
+
+	},
+    _scrollHandler: function() {
+      // throttle the work on the scroll event
+      this.checkScrollLocks();
+      /*var THROTTLE_THRESHOLD = 200;
+      if (!this.isDebouncerActive('_checksclocks')) {
+        this.debounce('_checksclocks', function() {
+          this.checkScrollLocks();
+        }, THROTTLE_THRESHOLD);
+      }*/
+    },
+    compareHeights: function () {
+    	return (window.innerHeight+500 >= document.body.scrollHeight-this.fixStart);
+    },
+    resetLockFlags: function () {
+    	this.fixed = false;
+    	this.navup = false;	
+    },
+    checkScrollLocks: function() {
+    	this.scldisabled = this.compareHeights();
+    	if (this.scldisabled) return;
+		if(this.scrollTop > this.fixStart){
+			this.fixed = true;
+		}else{
+			if(this.scrollTop < this.fixStop){
+				this.fixed = false;
+			}
+		}
+		if (!this.fixed) {
+			this.navup = false;
+			this.lastscrollY = 0;
+			return;
+		}
+    	this.navup = (this.scrollTop < this.lastscrollY);
+    	this.lastscrollY = this.scrollTop;
+    }
+
+};
+</script>

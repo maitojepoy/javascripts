@@ -1,0 +1,202 @@
+<link rel="import" href="../../bower_components/polymer/polymer-element.html">
+<link rel="import" href="../../bower_components/polymer/lib/utils/async.html">
+<script>
+// this loads swf - lol
+if (!window.$) {
+	window.$ = {};
+	$.SwiffFx = {
+		CallBacks: {},
+		remote: function(obj, fn){
+			this.owcheck = {'o': obj, 'fn': fn};
+			var rs = obj.CallFunction('<invoke name="' + fn + '" returntype="javascript">' + __flash__argumentsToXML(arguments, 2) + '</invoke>');
+			return eval(rs);
+		}
+	};
+}
+if (!window._BrowserCheck) {
+	window._BrowserCheck = {
+		Engine: {name: 'unknown', version: 0},
+		Platform: {name: (window.orientation != undefined) ? 'ipod' : (navigator.platform.match(/mac|win|linux/i) || ['other'])[0].toLowerCase()},
+		Features: {xpath: !!(document.evaluate), air: !!(window.runtime), query: !!(document.querySelector)},
+		Plugins: {},
+		Engines: {
+			presto: function(){
+				return (!window.opera) ? false : ((arguments.callee.caller) ? 960 : ((document.getElementsByClassName) ? 950 : 925));
+			},
+			trident: function(){
+				return (!window.ActiveXObject) ? false : ((window.XMLHttpRequest) ? ((document.querySelectorAll) ? 6 : 5) : 4);
+			},
+			webkit: function(){
+				return (navigator.taintEnabled) ? false : ((_BrowserCheck.Features.xpath) ? ((_BrowserCheck.Features.query) ? 525 : 420) : 419);
+			},
+			gecko: function(){
+				return (!document.getBoxObjectFor && window.mozInnerScreenX == null) ? false : ((document.getElementsByClassName) ? 19 : 18);
+			}
+		}
+	};
+
+	_BrowserCheck.Platform[_BrowserCheck.Platform.name] = true;
+
+	for (var engine in _BrowserCheck.Engines){
+		var version = _BrowserCheck.Engines[engine]();
+		if (version){
+			_BrowserCheck.Engine = {name: engine, version: version};
+			_BrowserCheck.Engine[engine] = _BrowserCheck.Engine[engine + version] = true;
+			break;
+		}
+	}
+}
+class SwIff extends Polymer.mixinBehaviors([Polymer.Async],Polymer.Element) {
+	static get is() { return "sw-iff"; }
+	static get properties() {
+		return {
+			src: {
+				type: String,
+				reflectToAttribute: true
+			},
+			height: {
+				type: Number,
+				value: 1
+			},
+			width: {
+				type: Number,
+				value: 1
+			},
+			properties: Object,
+			params: {
+				type: Object,
+				value: function () {
+					return {
+						quality: 'high',
+						allowScriptAccess: 'always',
+						wmode: 'transparent',
+						swLiveConnect: true
+					};
+				}
+			},
+			outparams: Array,
+			paramoutstr: {
+				type: String,
+				computed: '_genOutParams(outparams)'
+			},
+			swfid: String,
+			callBacks: Object,
+			vars: Object,
+			browser: Object,
+			buildstr: {
+				type: String,
+				observer: '_placeswf'
+			}
+		};
+	}
+	ready() {
+		super.ready();
+		this.browser = _BrowserCheck.Engine;
+	}
+	connectedCallback() {
+		super.connectedCallback();
+		this.root = this.attachShadow({mode: 'open'});
+		this.async(this._begin.bind(this),10);
+	}
+	_chkid() {
+		var ck = false, c0 = 0, inst;
+		while (!ck){
+			var t = +new Date;
+			var inst = 'SwFx_' + (t+c0);
+			if (!$.SwiffFx.CallBacks[inst]) ck = true;
+			else c0++;
+		}
+		this.id = inst;
+	}
+	_begin() {
+		var pout = [];
+
+		if (typeof this.id == 'undefined' || this.id=='') this._chkid();
+		// console.log(this.id);
+		this.swfid = 'sw_'+this.id;
+		
+		this._createCallbacks();
+
+		var fv = [];
+		for (var cc in this.vars)
+			fv.push(cc+'='+encodeURIComponent(this.vars[cc]));
+		this.params.flashVars = fv.join('&');
+		// console.log(this.params);
+
+		for (var p in this.params) {
+			pout.push({'name':p,'value':this.params[p]});
+		}
+
+		this.outparams = pout;
+		this._createBuildStr();
+	}
+	_createCallbacks() {
+		$.SwiffFx.CallBacks[this.id] = {};
+		if (this.callBacks) {
+			for (var callBack in this.callBacks){
+				$.SwiffFx.CallBacks[this.id][callBack] = (function(option){
+					//console.log('calling you',option);
+					return function(){
+						// console.log(this.callBacks,callBack);
+						return option.apply(this.callBacks[callBack], arguments);
+					}.bind(this);
+				}.bind(this))(this.callBacks[callBack]);
+				this.vars[callBack] = '$.SwiffFx.CallBacks.' + this.id + '.' + callBack;
+			}
+		}
+	}
+	_createBuildStr() {
+		var bstr='';
+		if (this.browser.webkit) {
+			var obstr = '<embed type="application/x-shockwave-flash" src="%S%" width="%W%" height="%H%" id="%I%" name="%I%" %P% />',
+				repstr = {
+					'%S%': this.src, '%W%': this.width, '%H%': this.height,
+					'%I%': this.swfid, '%P%': this.paramoutstr
+				};
+				bstr = obstr.replace(/%\w+%/g, function(all) {
+					return repstr[all] || all;
+				});
+		}else{
+			var props = {'data':this.src},cbuild=1;
+			if (!this.browser.trident) {
+				cbuild++;
+				props.type = 'application/x-shockwave-flash';
+			}else{
+				this.outparams.movie = path;
+				props.classid = 'clsid:D27CDB6E-AE6D-11cf-96B8-444553540000';
+			}
+
+			for(var pw=0;pw<cbuild;pw++){
+				bstr += '<object' + ((pw==0)?(' id="' + this.swfid + '"'):'');
+				for (var p in props) bstr += ' ' + p + '="' + props[p] + '"';
+				bstr += '>';
+				for (var param in this.outparams){
+					if (this.outparams[param]) bstr += '<param name="' + param + '" value="' + this.outparams[param] + '" />';
+				}
+				if (cbuild > 1){
+					delete props.classid;
+					props.type = 'application/x-shockwave-flash';
+				}
+				if (pw > 0) bstr += '</object>';
+			}
+			bstr += '</object>';
+		}
+		this.buildstr = bstr;
+	}
+	_placeswf() {
+		Polymer.dom(this.root).innerHTML = this.buildstr;
+	}
+	_genOutParams(prms) {
+		var fv=[];
+		for (var i=0; i<prms.length; i++)
+			fv.push(prms[i].name+'="'+prms[i].value+'"');
+		return fv.join(' ');
+	}
+	remote(){
+		sp=[this.$$('#'+this.swfid)];
+		for (i=0;i<arguments.length;i++) sp.push(arguments[i]);
+		return $.SwiffFx.remote.apply(this, sp);
+	}
+}
+window.customElements.define(SwIff.is, SwIff);
+</script>

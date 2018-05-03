@@ -1,0 +1,136 @@
+<link rel="import" href="../polymer/polymer/polymer.html">
+<link rel="import" href="../polymer/iron-scroll-target-behavior/iron-scroll-target-behavior.html">
+
+<script>
+
+  Polymer({
+
+    is: 'iron-scroll-giver',
+
+    properties: {
+
+      /**
+       * Distance from the bottom (or right, for horizontal) bound of the scroller
+       * where the "lower trigger" will fire.
+       */
+      lowerThreshold: {
+        type: Number,
+        value: 200
+      },
+
+      /**
+       * Read-only value that tracks the triggered state of the lower threshold.
+       */
+      lowerTriggered: {
+        type: Boolean,
+        value: false,
+        notify: true,
+        readOnly: true
+      },
+
+      scrollIt: {
+        type: Boolean,
+        value: false,
+        observer: '_kickScroll'
+      },
+
+      scrollTop: {
+        type: Number,
+        readOnly: true,
+        notify: true
+      },
+
+      dontTrigger: {
+        type: Boolean,
+        value: false
+      }
+    },
+
+    behaviors: [
+      Polymer.IronScrollTargetBehavior
+    ],
+
+    observers: [
+      '_initCheck(isAttached)',
+    ],
+
+    _kickScroll: function() {
+      this.async(function(){
+        //this.toggleScrollListener(this.scrollIt);
+        if (this.scrollIt) this.onTrigger();
+      }.bind(this));
+    },
+
+    _scrollHandler: function() {
+      // throttle the work on the scroll event
+      this.checkScrollThreshold();
+      /*var THROTTLE_THRESHOLD = 200;
+      if (!this.isDebouncerActive('_checkVThreshold')) {
+        this.debounce('_checkVThreshold', function() {
+          this.checkScrollThreshold();
+        }, THROTTLE_THRESHOLD);
+      }*/
+    },
+
+    _initCheck: function(horizontal, isAttached) {
+      if (isAttached) {
+        this.scrollTarget = 'document';
+        this.debounce('_init', function() {
+          this.clearTrigger();
+          this.checkScrollThreshold();
+        });
+      }
+    },
+
+    /**
+     * Checks the scroll threshold.
+     * This method is automatically called by iron-scroll-giver.
+     *
+     * @method checkScrollThreshold
+     */
+    checkScrollThreshold: function() {
+      if (!this.scrollTarget || this.upperTriggered) {
+        return;
+      }
+      this._setScrollTop(this._scrollTop);
+      var lowerScrollValue = 
+              this.scrollTarget.scrollHeight - this._scrollTargetHeight - this._scrollTop;
+      // Detect lower threshold
+      if (lowerScrollValue <= this.lowerThreshold && !this.lowerTriggered) {
+        if (!this.dontTrigger) this._setLowerTriggered(true);
+        this.fire('lower-threshold');
+      }
+    },
+
+    /**
+     * Clear the lower threshold state.
+     *
+     * @method clearTrigger
+     */
+    clearTrigger: function() {
+      this._setLowerTriggered(false);
+    },
+
+    onTrigger: function() {
+      this._setLowerTriggered(false);
+      this.dontTrigger = false;
+      /*if (!this._shouldHaveListener)
+        this.toggleScrollListener(!0);*/
+    },
+
+    offTrigger: function() {
+      this.dontTrigger = true;
+      this._setLowerTriggered(false);
+      /*if (this._shouldHaveListener)
+        this.toggleScrollListener(!1);*/
+    }
+
+    /**
+     * Fires when the lower threshold has been reached.
+     *
+     * @event lower-threshold
+     */
+
+  });
+
+</script>
